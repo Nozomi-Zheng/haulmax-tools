@@ -536,12 +536,6 @@ body {
 
     <div class="section-label">Shipment Details</div>
 
-    <!-- Package Type Toggle -->
-    <div class="pkg-toggle">
-      <button class="pkg-btn active" onclick="setPkgType('parcel', this)">📦 Parcel / Small Package</button>
-      <button class="pkg-btn" onclick="setPkgType('ltl', this)">🚛 Freight / LTL</button>
-    </div>
-
     <!-- ZIP row -->
     <div class="grid g2" style="margin-bottom:14px">
       <div class="field">
@@ -570,43 +564,12 @@ body {
       <div class="field"><label>Weight (<span class="wl">lbs</span>)</label><input type="number" id="wgt" placeholder="0" min="0" step="0.1"></div>
     </div>
 
-    <!-- LTL-specific fields -->
-    <div class="grid g3 ltl-fields" id="ltl-fields">
-      <div class="field">
-        <label>Freight Class</label>
-        <select id="freight_class">
-          <option value="50">Class 50</option>
-          <option value="55">Class 55</option>
-          <option value="60">Class 60</option>
-          <option value="65">Class 65</option>
-          <option value="70" selected>Class 70</option>
-          <option value="77.5">Class 77.5</option>
-          <option value="85">Class 85</option>
-          <option value="92.5">Class 92.5</option>
-          <option value="100">Class 100</option>
-          <option value="110">Class 110</option>
-          <option value="125">Class 125</option>
-          <option value="150">Class 150</option>
-          <option value="175">Class 175</option>
-          <option value="200">Class 200</option>
-          <option value="250">Class 250</option>
-          <option value="300">Class 300</option>
-          <option value="400">Class 400</option>
-          <option value="500">Class 500</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Pallets</label>
-        <input type="number" id="pallets" value="1" min="1" max="20">
-      </div>
-      <div class="field">
-        <label>Delivery Type</label>
-        <select id="ltl_delivery">
-          <option value="business">Business / Dock</option>
-          <option value="residential">Residential</option>
-          <option value="liftgate">Liftgate Required</option>
-        </select>
-      </div>
+    <!-- Delivery Speed -->
+    <div class="section-label" style="margin-top:4px">Delivery Speed</div>
+    <div class="pkg-toggle" style="margin-bottom:0">
+      <button class="pkg-btn active" onclick="setSpeed('economy',this)">🐢 Economy<br><span style="font-size:10px;font-weight:400;opacity:0.7">3–7 days · Cheapest</span></button>
+      <button class="pkg-btn" onclick="setSpeed('standard',this)">📦 Standard<br><span style="font-size:10px;font-weight:400;opacity:0.7">2–5 days</span></button>
+      <button class="pkg-btn" onclick="setSpeed('express',this)">⚡ Express<br><span style="font-size:10px;font-weight:400;opacity:0.7">1–2 days · Fastest</span></button>
     </div>
 
     <button class="calc-btn" onclick="calculate()">
@@ -633,13 +596,22 @@ body {
       <div class="rate-cards" id="parcel-cards"></div>
     </div>
 
-    <!-- LTL Results -->
+    <!-- LTL CTA -->
     <div class="results-section" id="ltl-results">
       <div class="results-header">
-        <div class="results-title">🚛 LTL Freight — <span id="ltl-count">0 carriers</span></div>
+        <div class="results-title">🚛 LTL Freight</div>
         <div class="results-line"></div>
       </div>
-      <div class="rate-cards" id="ltl-cards"></div>
+      <div style="background:#181818;border:1px solid #2a2a2a;border-radius:12px;padding:28px 24px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#C0392B;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Freight Shipment?</div>
+          <div style="font-size:17px;font-weight:700;color:#fff;margin-bottom:8px">Get an accurate LTL quote from Haulmax</div>
+          <div style="font-size:13px;color:#666;line-height:1.6">LTL rates vary significantly by lane, carrier, and freight class. Our logistics team will find you the best rate across Old Dominion, FedEx Freight, XPO, R+L, Estes, Saia, and more.</div>
+        </div>
+        <div style="flex-shrink:0">
+          <a href="mailto:info@haulmax.com?subject=LTL Quote Request" style="display:block;padding:13px 22px;background:#C0392B;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;text-align:center;font-family:'Sora',sans-serif;">Request LTL Quote →</a>
+        </div>
+      </div>
     </div>
 
     <!-- Haulmax CTA -->
@@ -670,7 +642,13 @@ body {
 <script>
 // ── State ──
 let unit = 'in';
-let pkgType = 'parcel';
+let deliverySpeed = 'economy';
+
+function setSpeed(speed, btn) {
+  deliverySpeed = speed;
+  document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
 
 // ── Helpers ──
 function setUnit(u, btn) {
@@ -1003,74 +981,94 @@ function buildResults(lIn, wIn, hIn, lbs, zone) {
   const parcelCards = [];
   const parcelNA    = [];
 
-  // DIM weight
-  const dimWt_usps   = (lIn && wIn && hIn) ? Math.ceil((lIn*wIn*hIn)/166) : 0;
-  const dimWt_fedex  = (lIn && wIn && hIn) ? Math.ceil((lIn*wIn*hIn)/250) : 0;
-  const dimWt_ups    = (lIn && wIn && hIn) ? Math.ceil((lIn*wIn*hIn)/225) : 0;
+  // ── DIM Weight (corrected retail rules) ──────────────────────────
+  // USPS: DIM only if vol > 1728 cu.in, divisor 166
+  // FedEx/UPS retail: divisor 139 (standard retail, not contract)
+  const vol = lIn * wIn * hIn;
+  const dimWt_usps  = (vol > 1728) ? Math.ceil(vol / 166) : 0;
+  const dimWt_fedex = (vol > 0)    ? Math.ceil(vol / 139) : 0;
+  const dimWt_ups   = (vol > 0)    ? Math.ceil(vol / 139) : 0;
 
   const billedUsps  = Math.max(Math.ceil(lbs), dimWt_usps);
   const billedFedex = Math.max(Math.ceil(lbs), dimWt_fedex);
   const billedUps   = Math.max(Math.ceil(lbs), dimWt_ups);
 
-  // USPS Ground Advantage
-  if (billedUsps <= 70) {
-    const r = lookupRate(USPS_GA, billedUsps, zone, 1);
-    if (r) parcelCards.push({ carrier:'USPS', service:'Ground Advantage', transit:'2-5 days', price:r, note:'fuel incl.' });
-    else parcelNA.push(renderNA('USPS Ground Advantage', 'Weight exceeds 70 lbs limit'));
-  } else {
-    parcelNA.push(renderNA('USPS Ground Advantage', 'Max 70 lbs — package too heavy'));
-  }
+  // Speed filter
+  const showEconomy  = deliverySpeed === 'economy' || deliverySpeed === 'standard';
+  const showStandard = deliverySpeed === 'standard' || deliverySpeed === 'economy';
+  const showExpress  = deliverySpeed === 'express';
+  const showAll      = deliverySpeed !== 'express';
 
-  // FedEx Home Delivery
-  if (billedFedex <= 150) {
-    const r = lookupRate(FEDEX_HOME, billedFedex, zone, 2);
-    if (r) {
-      const withFuel = r * 1.20;
-      const ahs = getAHS('fedex', lbs, lIn, wIn, hIn, zone);
-      const total = withFuel + ahs;
-      const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
-      parcelCards.push({ carrier:'FedEx', service:'Home Delivery', transit:'3-5 days', price:total, note:'fuel est. incl.' + ahsNote });
+  // USPS Ground Advantage — not for express
+  if (deliverySpeed !== 'express') {
+    if (billedUsps <= 70) {
+      const r = lookupRate(USPS_GA, billedUsps, zone, 1);
+      if (r) parcelCards.push({ carrier:'USPS', service:'Ground Advantage', transit:'2-5 days', price:r, note:'fuel incl.' });
+    } else {
+      parcelNA.push(renderNA('USPS Ground Advantage', `Max 70 lbs — billed weight ${billedUsps} lbs`));
     }
-  } else {
-    parcelNA.push(renderNA('FedEx Home Delivery', 'Max 150 lbs — package too heavy'));
   }
 
-  // FedEx Ground Economy
-  if (billedFedex <= 70) {
-    const r = lookupRate(FEDEX_ECONOMY, billedFedex, zone, 2);
-    if (r) {
-      const ahs = getAHS('fedex', lbs, lIn, wIn, hIn, zone);
-      const total = r + ahs;
-      const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
-      parcelCards.push({ carrier:'FedEx', service:'Ground Economy', transit:'3-7 days', price:total, note:'fuel incl.' + ahsNote });
+  // FedEx Home Delivery — not for express
+  if (deliverySpeed !== 'express') {
+    if (billedFedex <= 150) {
+      const r = lookupRate(FEDEX_HOME, billedFedex, zone, 2);
+      if (r) {
+        const withFuel = r * 1.20;
+        const ahs = getAHS('fedex', lbs, lIn, wIn, hIn, zone);
+        const total = withFuel + ahs;
+        const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
+        parcelCards.push({ carrier:'FedEx', service:'Home Delivery', transit:'3-5 days', price:total, note:'fuel est. incl.' + ahsNote });
+      }
+    } else {
+      parcelNA.push(renderNA('FedEx Home Delivery', `Max 150 lbs — billed weight ${billedFedex} lbs`));
     }
-  } else {
-    parcelNA.push(renderNA('FedEx Ground Economy', 'Max 70 lbs for this service'));
   }
 
-  // UPS Ground
-  if (billedUps <= 150) {
-    const r = lookupRate(UPS_GROUND, billedUps, zone, 2);
-    if (r) {
-      const withFuel = r * 1.18;
-      const ahs = getAHS('ups', lbs, lIn, wIn, hIn, zone);
-      const total = withFuel + ahs;
-      const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
-      parcelCards.push({ carrier:'UPS', service:'Ground (Residential)', transit:'3-5 days', price:total, note:'fuel est. incl.' + ahsNote });
+  // FedEx Ground Economy — economy only
+  if (deliverySpeed === 'economy') {
+    if (billedFedex <= 70) {
+      const r = lookupRate(FEDEX_ECONOMY, billedFedex, zone, 2);
+      if (r) {
+        const ahs = getAHS('fedex', lbs, lIn, wIn, hIn, zone);
+        const total = r + ahs;
+        const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
+        parcelCards.push({ carrier:'FedEx', service:'Ground Economy', transit:'3-7 days', price:total, note:'fuel incl.' + ahsNote });
+      }
+    } else {
+      parcelNA.push(renderNA('FedEx Ground Economy', `Max 70 lbs — billed weight ${billedFedex} lbs`));
     }
-  } else {
-    parcelNA.push(renderNA('UPS Ground', 'Max 150 lbs — package too heavy'));
   }
 
-  // UPS 2nd Day Air
-  if (billedUps <= 150) {
-    const r = lookupRate(UPS_2DAY, billedUps, zone, 2);
-    if (r) {
-      const withFuel = r * 1.18;
-      const ahs = getAHS('ups', lbs, lIn, wIn, hIn, zone);
-      const total = withFuel + ahs;
-      const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
-      parcelCards.push({ carrier:'UPS', service:'2nd Day Air', transit:'2 days', price:total, note:'fuel est. incl.' + ahsNote, fast:true });
+  // UPS Ground — not for express
+  if (deliverySpeed !== 'express') {
+    if (billedUps <= 150) {
+      const r = lookupRate(UPS_GROUND, billedUps, zone, 2);
+      if (r) {
+        const withFuel = r * 1.18;
+        const ahs = getAHS('ups', lbs, lIn, wIn, hIn, zone);
+        const total = withFuel + ahs;
+        const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
+        parcelCards.push({ carrier:'UPS', service:'Ground (Residential)', transit:'3-5 days', price:total, note:'fuel est. incl.' + ahsNote });
+      }
+    } else {
+      parcelNA.push(renderNA('UPS Ground', `Max 150 lbs — billed weight ${billedUps} lbs`));
+    }
+  }
+
+  // UPS 2nd Day Air — standard + express
+  if (deliverySpeed !== 'economy') {
+    if (billedUps <= 150) {
+      const r = lookupRate(UPS_2DAY, billedUps, zone, 2);
+      if (r) {
+        const withFuel = r * 1.18;
+        const ahs = getAHS('ups', lbs, lIn, wIn, hIn, zone);
+        const total = withFuel + ahs;
+        const ahsNote = ahs > 0 ? ` +AHS $${ahs.toFixed(2)}` : '';
+        parcelCards.push({ carrier:'UPS', service:'2nd Day Air', transit:'2 days', price:total, note:'fuel est. incl.' + ahsNote, fast:true });
+      }
+    } else {
+      parcelNA.push(renderNA('UPS 2nd Day Air', `Max 150 lbs — billed weight ${billedUps} lbs`));
     }
   }
 
@@ -1090,23 +1088,7 @@ function buildResults(lIn, wIn, hIn, lbs, zone) {
     parcelSection.style.display = 'block';
   }
 
-  // ── LTL Results ──
-  const freightClass = parseFloat(document.getElementById('freight_class').value) || 70;
-  const deliveryType = document.getElementById('ltl_delivery').value;
-  const ltlResults = estimateLTL(Math.ceil(lbs), freightClass, zone, deliveryType);
-  ltlResults.sort((a,b) => a.price - b.price);
-
-  const ltlContainer = document.getElementById('ltl-cards');
-  ltlContainer.innerHTML = ltlResults.map((c,i) => renderCard({
-    name: c.name,
-    transit: c.transit,
-    price: c.price,
-    note: 'est. + surcharges',
-    ltl: true
-  }, i===0)).join('');
-  document.getElementById('ltl-count').textContent = `${ltlResults.length} carriers`;
-  ltlSection.style.display = 'block';
-
+  document.getElementById('ltl-results').style.display = 'block';
   document.getElementById('results').classList.add('show');
   document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
