@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIM Weight Calculator — Haulmax</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8f8f8;
+  color: #1a1a1a;
+  min-height: 100vh;
+}
+
+.page { max-width: 860px; margin: 0 auto; padding: 40px 20px 60px; }
+
+.header { margin-bottom: 36px; }
+.header h1 { font-size: 28px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+.header p { font-size: 15px; color: #666; line-height: 1.6; }
+
+/* Input section */
+.card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media(max-width: 600px) { .input-grid { grid-template-columns: 1fr; } }
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.field input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #1a1a1a;
+  transition: border-color 0.2s;
+}
+.field input:focus {
+  outline: none;
+  border-color: #C0392B;
+  box-shadow: 0 0 0 3px rgba(192,57,43,0.08);
+}
+
+.unit-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.unit-btn {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.unit-btn.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media(max-width: 600px) { .weight-row { grid-template-columns: 1fr; } }
+
+.calc-btn {
+  width: 100%;
+  padding: 14px;
+  background: #C0392B;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.calc-btn:hover { background: #e74c3c; }
+
+/* Results */
+.results { display: none; }
+.results.show { display: block; }
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media(max-width: 600px) { .results-grid { grid-template-columns: 1fr; } }
+
+.result-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+}
+.result-card.highlight {
+  border-color: #C0392B;
+  background: #fff8f7;
+}
+.result-card .carrier {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #999;
+  margin-bottom: 6px;
+}
+.result-card.highlight .carrier { color: #C0392B; }
+.result-card .dim-factor {
+  font-size: 12px;
+  color: #bbb;
+  margin-bottom: 10px;
+}
+.result-card .dim-weight {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1a1a1a;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.result-card .billed {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 8px;
+}
+.result-card .billed.dim { background: #fee; color: #C0392B; }
+.result-card .billed.actual { background: #e8f5e9; color: #2e7d32; }
+
+/* Comparison table */
+.compare-table {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.compare-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.compare-table th {
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  text-align: left;
+}
+.compare-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #1a1a1a;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:hover td { background: #fafafa; }
+.compare-table td.billed-weight { font-weight: 700; color: #C0392B; }
+.compare-table td.actual-win { font-weight: 700; color: #2e7d32; }
+
+/* Custom DIM section */
+.custom-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px 28px;
+  margin-bottom: 20px;
+}
+.custom-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: #1a1a1a;
+}
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.custom-row input {
+  width: 100px;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.custom-row input:focus {
+  outline: none;
+  border-color: #C0392B;
+}
+.custom-row button {
+  padding: 8px 16px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.custom-row button:hover { background: #C0392B; }
+.custom-result {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #444;
+  display: none;
+}
+.custom-result.show { display: block; }
+.custom-result strong { color: #C0392B; font-size: 18px; }
+
+/* Tip */
+.tip {
+  background: #fff8f7;
+  border: 1px solid rgba(192,57,43,0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+}
+.tip strong { color: #C0392B; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>DIM Weight Calculator</h1>
+    <p>Calculate dimensional weight across FedEx, UPS, and USPS. See which weight gets billed — and compare your carrier's DIM factor side by side.</p>
+  </div>
+
+  <!-- Input Card -->
+  <div class="card">
+    <h2>Package Dimensions</h2>
+
+    <div class="unit-toggle">
+      <button class="unit-btn active" onclick="setUnit('in', this)">Inches / lbs</button>
+      <button class="unit-btn" onclick="setUnit('cm', this)">cm / kg</button>
+    </div>
+
+    <div class="input-grid">
+      <div class="field">
+        <label>Length (<span class="unit-label">in</span>)</label>
+        <input type="number" id="length" placeholder="e.g. 18" min="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Width (<span class="unit-label">in</span>)</label>
+        <input type="number" id="width" placeholder="e.g. 12" min="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Height (<span class="unit-label">in</span>)</label>
+        <input type="number" id="height" placeholder="e.g. 8" min="0" step="0.1">
+      </div>
+    </div>
+
+    <div class="weight-row">
+      <div class="field">
+        <label>Actual Weight (<span class="weight-label">lbs</span>)</label>
+        <input type="number" id="actual" placeholder="e.g. 5" min="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Quantity</label>
+        <input type="number" id="qty" placeholder="1" min="1" value="1">
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="calculate()">Calculate DIM Weight</button>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <div class="results-grid">
+      <div class="result-card" id="card-fedex">
+        <div class="carrier">FedEx</div>
+        <div class="dim-factor">DIM Factor: 139</div>
+        <div class="dim-weight" id="fedex-dim">—</div>
+        <div style="font-size:12px;color:#999;margin-top:2px">lbs DIM weight</div>
+        <div class="billed" id="fedex-billed">—</div>
+      </div>
+      <div class="result-card" id="card-ups">
+        <div class="carrier">UPS</div>
+        <div class="dim-factor">DIM Factor: 139</div>
+        <div class="dim-weight" id="ups-dim">—</div>
+        <div style="font-size:12px;color:#999;margin-top:2px">lbs DIM weight</div>
+        <div class="billed" id="ups-billed">—</div>
+      </div>
+      <div class="result-card" id="card-usps">
+        <div class="carrier">USPS</div>
+        <div class="dim-factor">DIM Factor: 166</div>
+        <div class="dim-weight" id="usps-dim">—</div>
+        <div style="font-size:12px;color:#999;margin-top:2px">lbs DIM weight</div>
+        <div class="billed" id="usps-billed">—</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="carrier">Actual Weight</div>
+        <div class="dim-factor">What you declared</div>
+        <div class="dim-weight" id="actual-display">—</div>
+        <div style="font-size:12px;color:#999;margin-top:2px">lbs</div>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="compare-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Carrier</th>
+            <th>DIM Factor</th>
+            <th>DIM Weight</th>
+            <th>Actual Weight</th>
+            <th>Billed Weight</th>
+          </tr>
+        </thead>
+        <tbody id="compare-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Custom DIM -->
+    <div class="custom-section">
+      <h3>Your Carrier's DIM Factor</h3>
+      <div class="custom-row">
+        <label style="font-size:13px;color:#555">DIM Factor:</label>
+        <input type="number" id="custom-factor" placeholder="e.g. 250" min="1">
+        <button onclick="calcCustom()">Calculate</button>
+      </div>
+      <div class="custom-result" id="custom-result"></div>
+    </div>
+
+    <div class="tip">
+      <strong>💡 How DIM weight works:</strong> Carriers charge whichever is greater — actual weight or dimensional weight. DIM weight = (L × W × H) ÷ DIM Factor. A lower DIM factor means you pay more for large, light packages.
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let unit = 'in';
+
+function setUnit(u, btn) {
+  unit = u;
+  document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.unit-label').forEach(el => el.textContent = u);
+  document.querySelector('.weight-label').textContent = u === 'in' ? 'lbs' : 'kg';
+}
+
+function dimWeight(l, w, h, factor) {
+  if (unit === 'cm') {
+    // Convert to inches first
+    l = l / 2.54; w = w / 2.54; h = h / 2.54;
+  }
+  return Math.ceil((l * w * h) / factor);
+}
+
+function billedWeight(actual, dim) {
+  if (unit === 'cm') actual = actual * 2.20462;
+  return Math.max(Math.ceil(actual), dim);
+}
+
+function calculate() {
+  const l = parseFloat(document.getElementById('length').value) || 0;
+  const w = parseFloat(document.getElementById('width').value) || 0;
+  const h = parseFloat(document.getElementById('height').value) || 0;
+  const actual = parseFloat(document.getElementById('actual').value) || 0;
+  const qty = parseInt(document.getElementById('qty').value) || 1;
+
+  if (!l || !w || !h || !actual) {
+    alert('Please fill in all dimensions and actual weight.');
+    return;
+  }
+
+  const actualLbs = unit === 'cm' ? actual * 2.20462 : actual;
+
+  const carriers = [
+    { id: 'fedex', name: 'FedEx', factor: 139 },
+    { id: 'ups',   name: 'UPS',   factor: 139 },
+    { id: 'usps',  name: 'USPS',  factor: 166 },
+  ];
+
+  let tableRows = '';
+
+  carriers.forEach(c => {
+    const dim = dimWeight(l, w, h, c.factor);
+    const billed = Math.max(Math.ceil(actualLbs), dim);
+    const isDim = dim > Math.ceil(actualLbs);
+
+    document.getElementById(`${c.id}-dim`).textContent = (dim * qty).toFixed(0);
+    const billedEl = document.getElementById(`${c.id}-billed`);
+    billedEl.textContent = isDim
+      ? `Billed: ${(billed * qty)} lbs (DIM)`
+      : `Billed: ${(billed * qty)} lbs (Actual)`;
+    billedEl.className = 'billed ' + (isDim ? 'dim' : 'actual');
+
+    tableRows += `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.factor}</td>
+      <td>${dim * qty} lbs</td>
+      <td>${Math.ceil(actualLbs * qty)} lbs</td>
+      <td class="${isDim ? 'billed-weight' : 'actual-win'}">${billed * qty} lbs ${isDim ? '(DIM)' : '(Actual)'}</td>
+    </tr>`;
+  });
+
+  document.getElementById('actual-display').textContent = (actualLbs * qty).toFixed(1);
+  document.getElementById('compare-body').innerHTML = tableRows;
+  document.getElementById('results').classList.add('show');
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function calcCustom() {
+  const factor = parseFloat(document.getElementById('custom-factor').value);
+  const l = parseFloat(document.getElementById('length').value) || 0;
+  const w = parseFloat(document.getElementById('width').value) || 0;
+  const h = parseFloat(document.getElementById('height').value) || 0;
+  const actual = parseFloat(document.getElementById('actual').value) || 0;
+  const qty = parseInt(document.getElementById('qty').value) || 1;
+
+  if (!factor || !l || !w || !h || !actual) {
+    alert('Please calculate first, then enter your DIM factor.');
+    return;
+  }
+
+  const actualLbs = unit === 'cm' ? actual * 2.20462 : actual;
+  const dim = dimWeight(l, w, h, factor);
+  const billed = Math.max(Math.ceil(actualLbs), dim);
+  const isDim = dim > Math.ceil(actualLbs);
+
+  const el = document.getElementById('custom-result');
+  el.className = 'custom-result show';
+  el.innerHTML = `With DIM factor <strong>${factor}</strong>: 
+    DIM weight = <strong>${dim * qty} lbs</strong> — 
+    You'd be billed <strong style="color:${isDim ? '#C0392B' : '#2e7d32'}">${billed * qty} lbs</strong> 
+    (${isDim ? 'DIM weight applies' : 'Actual weight applies'})`;
+}
+</script>
+</body>
+</html>
